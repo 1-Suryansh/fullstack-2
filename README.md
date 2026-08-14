@@ -1,53 +1,55 @@
-# Scheduler — Experiments 1.2.1 & 1.2.2
+# Experiment 1.3.1 — JWT Authentication (standalone)
 
-A social-media post scheduler built to demonstrate centralized state management
-(Redux Toolkit) and selector-based performance optimization (Reselect).
+## Run
 
-## How to run
+    npm install
+    npm run dev
 
-```bash
-npm install
-npm run dev
-```
-Then open the URL Vite prints (usually http://localhost:5173).
+Always opens on **http://localhost:5173**
 
-## Where each requirement lives
+## Test accounts
 
-### Experiment 1.2.1 — Centralized state management
+| Email          | Password  |
+|----------------|-----------|
+| admin@app.com  | admin123  |
+| editor@app.com | editor123 |
+| viewer@app.com | viewer123 |
 
-| Requirement | File |
-|---|---|
-| Install Redux Toolkit + React-Redux | `package.json` |
-| Configure Redux store | `src/app/store.js` |
-| `<Provider>` wiring | `src/main.jsx` |
-| Slice for posts | `src/features/posts/postsSlice.js` |
-| Slice for platforms | `src/features/platforms/platformsSlice.js` |
-| Normalized initial state (`entities` + `ids`) | both slices |
-| Reducers for CRUD | `postAdded`, `postUpdated`, `postDeleted`, `postScheduled`, `postPublished` |
-| Connect components with hooks | every file in `src/components/` (`useSelector`, `useDispatch`) |
-| Async thunk / mock API | `fetchPosts` in `postsSlice.js`, dispatched from `App.jsx` |
+All three behave identically here. Roles only start mattering in Experiment 1.3.2.
 
-### Experiment 1.2.2 — Memoized selectors & rendering
+## Files
 
-| Requirement | File / symbol |
-|---|---|
-| Basic input selectors | `postsSelectors.js` section 1 |
-| Memoized selectors via `createSelector` | sections 2–9 |
-| Derived data — filtered posts | `selectVisiblePostIds` |
-| Derived data — grouped data | `selectStatsByPlatform` |
-| Derived data — no duplicate slice | `selectDrafts` |
-| Selectors integrated into components | `PostList`, `PlatformStats`, `DraftsPanel`, `PostCard` |
-| `React.memo` | `PostCard.jsx` (`export default memo(PostCard)`) |
-| `useMemo` | `PostCard.jsx` (`useMemo(makeSelectPostView, [])`) |
-| Analyse re-renders | `RenderBadge.jsx` — the `·n` counter on every panel |
+| File                        | Purpose                              |
+|-----------------------------|--------------------------------------|
+| src/utils/jwt.js            | create / decode / verify the token    |
+| src/context/AuthContext.jsx | login, logout, session state          |
+| src/utils/api.js            | attaches Authorization: Bearer header |
+| src/pages/Login.jsx         | login form                            |
+| src/pages/Dashboard.jsx     | shows header, payload and raw token   |
 
-## What to record as your result
+No React Router in this project — the whole screen is decided by one question:
+is there a valid token or not?
 
-1. Load the app — the status pill goes `loading` then `succeeded` (async thunk).
-2. Add a post — it appears instantly in the queue, the stats bars and the draft
-   count update, with no props passed between those components.
-3. Type in the search box — the FilterBar and PostList counters go up; the
-   Stats and Drafts counters do **not**. That is memoization working.
-4. Click "Edit title" on one card — only that card's `·n` increases. The other
-   cards are skipped by `React.memo`.
-5. Open Redux DevTools to show the action log and the normalized state tree.
+## Screenshots for the report
+
+1. Login page
+2. Dashboard — header and payload decoded
+3. Raw token + expiry time
+4. Chrome DevTools > Application > Local Storage > key `jwt_auth_token`
+5. Click "Call protected API" — the Authorization: Bearer header
+6. The token pasted into jwt.io
+
+## Tamper demo
+
+Open Chrome DevTools > Console and paste:
+
+    const t = localStorage.getItem('jwt_auth_token');
+    const [h, p, s] = t.split('.');
+    const c = JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/')));
+    c.name = 'Hacked User';
+    const forged = btoa(JSON.stringify(c))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    localStorage.setItem('jwt_auth_token', h + '.' + forged + '.' + s);
+    location.reload();
+
+You are logged out instead of renamed — the signature no longer matches.
